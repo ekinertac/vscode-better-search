@@ -1,12 +1,10 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import { subtractString } from './utils';
+import * as vscode from "vscode";
 
 const showModal = (context: vscode.ExtensionContext) => {
   // Create and show a webview for the modal
   const panel = vscode.window.createWebviewPanel(
-    'betterSearchModal', // Internal identifier for the modal
-    'Better Search Modal', // Title of the modal
+    "betterSearchModal", // Internal identifier for the modal
+    "Better Search Modal", // Title of the modal
     vscode.ViewColumn.One, // Where to show the modal (in the editor)
     {
       enableScripts: true, // Allow JavaScript in the webview
@@ -21,7 +19,7 @@ const showModal = (context: vscode.ExtensionContext) => {
   panel.webview.onDidReceiveMessage(
     (message) => {
       switch (message.command) {
-        case 'close':
+        case "close":
           panel.dispose(); // Close the modal
           break;
       }
@@ -30,8 +28,6 @@ const showModal = (context: vscode.ExtensionContext) => {
     context.subscriptions
   );
 };
-
-
 
 // Function to return HTML content for the modal webview
 function getModalHtmlContent() {
@@ -71,6 +67,5 @@ function getModalHtmlContent() {
   </html>
   `;
 }
-
 
 export default showModal;
