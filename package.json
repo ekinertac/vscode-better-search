@@ -1,31 +1,11 @@
 {
   "name": "better-search",
   "displayName": "Better Search",
-  "description": "ekinertac-betterseatch",
+  "description": "A better search alternative for Visual Studio Code",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.92.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "better-search.findInProject",
-        "title": "Find in Project (BetterSearch)"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "better-search.findInProject",
-        "key": "shift+cmd+f"
-      }
-    ]
-  },
+  "publisher": "ekinertac",
   "scripts": {
+    "build": "npm run compile && npm run vscode:prepublish && vsce package -o dist",
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
@@ -39,17 +19,68 @@
     "lint": "eslint src --ext ts",
     "test": "vscode-test"
   },
+  "author": {
+    "name": "Ekin Ertaç"
+  },
+  "categories": [
+    "Other"
+  ],
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "galleryBanner": {
+    "color": "#C80000",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "activationEvents": [
+    "onCommand:better-search.findInProject",
+    "onCommand:better-search.showModal"
+  ],
+  "license": "See license in LICENSE file",
+  "main": "./dist/extension.js",
+  "homepage": "https://github.com/ekinertac/vscode-better-search",
+  "bugs": {
+    "email": "ekinertac@gmail.com",
+    "url": "https://github.com/ekinertac/vscode-better-search/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ekinertac/vscode-better-search.git"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "better-search.findInProject",
+        "title": "Find in Project (BetterSearch)"
+      },
+      {
+        "command": "better-search.showModal",
+        "title": "Show Modal (Better Search)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "better-search.findInProject",
+        "key": "shift+cmd+f"
+      },
+      {
+        "command": "better-search.showModal",
+        "key": "alt+ctrl+F"
+      }
+    ]
+  },
   "devDependencies": {
-    "@types/vscode": "^1.92.0",
     "@types/mocha": "^10.0.7",
     "@types/node": "20.x",
+    "@types/vscode": "^1.87.0",
     "@typescript-eslint/eslint-plugin": "^7.14.1",
     "@typescript-eslint/parser": "^7.11.0",
-    "eslint": "^8.57.0",
-    "esbuild": "^0.21.5",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.4.5",
     "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.4.0"
+    "@vscode/test-electron": "^2.4.0",
+    "esbuild": "^0.21.5",
+    "eslint": "^8.57.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.4.5"
   }
 }
