@@ -1,7 +1,23 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { subtractString, isBinary, getGitignorePatterns } from './utils';
-import { defaultExcludePatterns } from './constants';
+import { DEFAULT_DEBOUNCE_TIME, defaultExcludePatterns } from './constants';
+import { QuickPickItem } from 'vscode';
+
+interface SearchState {
+  caseSensitive: boolean;
+  isSingleLine: boolean;
+  showLineNumbers: boolean;
+  isRegex: boolean;
+  isExclude: boolean;
+}
+const searchState: SearchState = {
+  caseSensitive: false,
+  isSingleLine: true,
+  showLineNumbers: true,
+  isRegex: false,
+  isExclude: false,
+};
 
 const findInFiles = () => {
   const quickPick = vscode.window.createQuickPick();
@@ -9,21 +25,14 @@ const findInFiles = () => {
   quickPick.matchOnDescription = true;
   quickPick.matchOnDetail = true;
 
-  // Case sensitivity state
-  let caseSensitive = false;
-  // Toggle state between single-line and multi-line
-  let isSingleLine = true;
-  // Toggle Line numbers
-  let showLineNumbers = true;
-
-  // Add toggle buttons for case sensitivity and single/multi-line mode
+  // Toggle button definitions
   const caseSensitiveButton = {
     iconPath: new vscode.ThemeIcon('case-sensitive'),
     tooltip: 'Toggle Case Sensitivity',
   };
 
   const toggleViewButton = {
-    iconPath: new vscode.ThemeIcon('list-flat'), // Icon indicating single-line view
+    iconPath: new vscode.ThemeIcon('list-flat'),
     tooltip: 'Switch to Multi-Line View',
   };
 
@@ -32,137 +41,260 @@ const findInFiles = () => {
     tooltip: 'Show/Hide Line Numbers',
   };
 
-  quickPick.buttons = [caseSensitiveButton, toggleViewButton, toggleLineNumbersButton];
+  const toggleRegexButton = {
+    iconPath: new vscode.ThemeIcon('regex'),
+    tooltip: 'Toggle Regex Search',
+  };
 
+  const toggleExcludeButton = {
+    iconPath: new vscode.ThemeIcon('exclude'),
+    tooltip: 'Toggle Exclude Patterns',
+  };
+
+  // Add toggle buttons to the quick pick
+  quickPick.buttons = [
+    caseSensitiveButton,
+    toggleViewButton,
+    toggleLineNumbersButton,
+    toggleRegexButton,
+    toggleExcludeButton,
+  ];
+
+  // Initialize timeout for debounce
   let timeout: NodeJS.Timeout | undefined;
+
+  // Get the workspace folder
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath || '';
 
+  // Function to search and show results
   const searchAndShowResults = async (searchString: string) => {
     if (!searchString) {
       quickPick.items = [];
       return;
     }
 
-    // Respect VS Code's exclude settings (files.exclude, search.exclude, .gitignore, etc.)
-    const gitIgnorePatterns = getGitignorePatterns(workspaceFolder).join(',');
+    // Get exclude patterns
+    const excludePatterns = searchState.isExclude ? getExcludePatterns(workspaceFolder) : '';
 
-    // Default exclusions + project specific exclusions
-    const excludePatterns = [...defaultExcludePatterns, gitIgnorePatterns].join(',');
-
+    // Find files to search
     const files = await vscode.workspace.findFiles('**/*', excludePatterns, 25);
-    const results: vscode.QuickPickItem[] = [];
 
-    for (const file of files) {
-      const filePath = file.fsPath;
+    // Search files and update quick pick items
+    const results = await searchFiles(files, searchString, workspaceFolder, searchState);
 
-      // Check if the file is binary by checking its extension
-      const isBinaryFile = isBinary(filePath);
-      if (isBinaryFile) {
-        continue; // Skip binary files
-      }
-
-      try {
-        const document = await vscode.workspace.openTextDocument(filePath);
-        const text = document.getText();
-        const lines = text.split(/\r?\n/);
-        let relativePath = subtractString(file.fsPath, workspaceFolder);
-
-        // Remove the leading slash if present
-        if (relativePath.startsWith(path.sep)) {
-          relativePath = relativePath.slice(1);
-        }
-
-        lines.forEach((line, i) => {
-          const searchInLine = caseSensitive ? line : line.toLowerCase();
-          const searchFor = caseSensitive ? searchString : searchString.toLowerCase();
-
-          if (searchInLine.includes(searchFor)) {
-            // Check if we are in single-line or multi-line mode
-            if (isSingleLine) {
-              results.push({
-                label: `${line.trim()}`, // Single-line: only content
-                description: showLineNumbers ? `(Line ${i + 1}) ${relativePath}` : relativePath, // File path on the right side
-              });
-            } else {
-              results.push({
-                label: `${line.trim()}`, // Multi-line: content on the first line
-                description: showLineNumbers ? `(Line ${i + 1})` : '', // Line number in description
-                detail: `${relativePath}`, // File path in detail (below the line number)
-              });
-            }
-          }
-        });
-      } catch (error) {
-        console.warn(`Could not open file as text: ${filePath}`, error);
-      }
-    }
-
-    if (results.length > 0) {
-      quickPick.items = results;
-    } else {
-      quickPick.items = [{ label: 'No matches found.', description: '' }];
-    }
+    // Update quick pick items
+    updateQuickPickItems(results, quickPick);
   };
 
+  // Handle search term changes
   quickPick.onDidChangeValue((value) => {
     if (timeout) {
       clearTimeout(timeout);
     }
     timeout = setTimeout(() => {
-      searchAndShowResults(value); // Pass the search string
-    }, 300); // Debounce for 300ms
+      searchAndShowResults(value); // Pass the search term
+    }, DEFAULT_DEBOUNCE_TIME); // Debounce for 300ms
   });
 
+  // Handle quick pick acceptance
   quickPick.onDidAccept(() => {
     const selected = quickPick.selectedItems[0];
     if (!selected || selected.label === 'No matches found.') {
       return;
     }
 
-    const filePath = path.join(workspaceFolder, selected.detail || selected.description?.split(') ')[1] || ''); // Extract file path
+    // Extract file path
+    const filePath = path.join(workspaceFolder, selected.detail || selected.description?.split(') ')[1] || '');
+
+    // Extract line number
     const lineInfo = selected.description?.match(/\(Line (\d+)\)/);
     const line = lineInfo ? parseInt(lineInfo[1], 10) - 1 : 0;
 
+    // Open the file and set the cursor to the correct line
     vscode.workspace.openTextDocument(filePath).then((doc) => {
       vscode.window.showTextDocument(doc).then((editor) => {
         const range = editor.document.lineAt(line).range;
         editor.selection = new vscode.Selection(range.start, range.end);
-        editor.revealRange(range);
+
+        // Center the scroll to the selected line
+        const middleLine = Math.floor(editor.visibleRanges[0].end.line / 2);
+        const targetLine = Math.max(line - middleLine, 0);
+        const targetRange = editor.document.lineAt(targetLine).range;
+        editor.revealRange(targetRange, vscode.TextEditorRevealType.InCenter);
       });
     });
+
+    // Hide the quick pick after opening the file
     quickPick.hide();
   });
 
   // Handle button clicks
   quickPick.onDidTriggerButton((button) => {
-    if (button === caseSensitiveButton) {
-      caseSensitive = !caseSensitive;
-      vscode.window.showInformationMessage(`Case sensitivity: ${caseSensitive ? 'On' : 'Off'}`);
-      searchAndShowResults(quickPick.value); // Re-trigger search with updated case sensitivity
+    switch (button) {
+      case caseSensitiveButton:
+        searchState.caseSensitive = !searchState.caseSensitive;
+        updateButtonState(caseSensitiveButton, searchState.caseSensitive, 'case-sensitive', 'Case Sensitivity');
+        vscode.window.showInformationMessage(`Case sensitivity: ${searchState.caseSensitive ? 'On' : 'Off'}`);
+        break;
+      case toggleViewButton:
+        searchState.isSingleLine = !searchState.isSingleLine;
+        updateViewButtonState(toggleViewButton, searchState.isSingleLine);
+        vscode.window.showInformationMessage(`View mode: ${searchState.isSingleLine ? 'Single-line' : 'Multi-line'}`);
+        break;
+      case toggleLineNumbersButton:
+        searchState.showLineNumbers = !searchState.showLineNumbers;
+        updateButtonState(
+          toggleLineNumbersButton,
+          searchState.showLineNumbers,
+          'symbol-numeric',
+          'Line Numbers',
+          'Show',
+          'Hide',
+        );
+        vscode.window.showInformationMessage(`Line numbers: ${searchState.showLineNumbers ? 'Shown' : 'Hidden'}`);
+        break;
+      case toggleRegexButton:
+        searchState.isRegex = !searchState.isRegex;
+        updateButtonState(toggleRegexButton, searchState.isRegex, 'regex', 'Regex Search');
+        vscode.window.showInformationMessage(`Regex search: ${searchState.isRegex ? 'On' : 'Off'}`);
+        break;
+      case toggleExcludeButton:
+        searchState.isExclude = !searchState.isExclude;
+        updateButtonState(toggleExcludeButton, searchState.isExclude, 'exclude', 'Exclude Patterns');
+        vscode.window.showInformationMessage(`Exclude patterns: ${searchState.isExclude ? 'On' : 'Off'}`);
+        break;
     }
 
-    if (button === toggleViewButton) {
-      isSingleLine = !isSingleLine;
-
-      // Update button icon and tooltip based on the current mode
-      if (isSingleLine) {
-        toggleViewButton.iconPath = new vscode.ThemeIcon('list-flat'); // Single-line view icon
-        toggleViewButton.tooltip = 'Switch to Multi-Line View';
-      } else {
-        toggleViewButton.iconPath = new vscode.ThemeIcon('list-tree'); // Multi-line view icon
-        toggleViewButton.tooltip = 'Switch to Single-Line View';
-      }
-
-      searchAndShowResults(quickPick.value); // Re-trigger search with updated display mode
-    }
-
-    if (button === toggleLineNumbersButton) {
-      showLineNumbers = !showLineNumbers;
-      searchAndShowResults(quickPick.value); // Re-trigger search
-    }
+    searchAndShowResults(quickPick.value);
   });
 
   quickPick.show();
 };
+
+function getExcludePatterns(workspaceFolder: string): string {
+  const gitIgnorePatterns = getGitignorePatterns(workspaceFolder).join(',');
+  // Combine default exclude patterns with gitignore patterns
+  return [...defaultExcludePatterns, gitIgnorePatterns].join(',');
+}
+
+async function searchFiles(
+  files: vscode.Uri[],
+  searchString: string,
+  workspaceFolder: string,
+  searchState: SearchState,
+): Promise<QuickPickItem[]> {
+  const results: QuickPickItem[] = [];
+
+  for (const file of files) {
+    if (isBinary(file.fsPath)) {
+      continue;
+    }
+
+    try {
+      const document = await vscode.workspace.openTextDocument(file.fsPath);
+      const text = document.getText();
+      const lines = text.split(/\r?\n/);
+      const relativePath = getRelativePath(file.fsPath, workspaceFolder);
+
+      const searchRegex = createSearchRegex(searchString, searchState);
+
+      lines.forEach((line, i) => {
+        if (isLineMatch(line, searchString, searchRegex, searchState)) {
+          results.push(createQuickPickItem(line, i, relativePath, searchState));
+        }
+      });
+    } catch (error) {
+      console.warn(`Could not open file as text: ${file.fsPath}`, error);
+    }
+  }
+
+  return results;
+}
+
+function getRelativePath(filePath: string, workspaceFolder: string): string {
+  let relativePath = subtractString(filePath, workspaceFolder);
+  return relativePath.startsWith(path.sep) ? relativePath.slice(1) : relativePath;
+}
+
+function createSearchRegex(searchString: string, { isRegex, caseSensitive }: SearchState): RegExp | null {
+  if (!isRegex) {
+    return null;
+  }
+
+  try {
+    return new RegExp(searchString, caseSensitive ? 'g' : 'gi');
+  } catch (error) {
+    console.warn('Invalid regex:', error);
+    return null;
+  }
+}
+
+function isLineMatch(
+  line: string,
+  searchString: string,
+  searchRegex: RegExp | null,
+  { caseSensitive }: SearchState,
+): boolean {
+  if (searchRegex) {
+    const match = searchRegex.test(line);
+    searchRegex.lastIndex = 0; // Reset lastIndex for subsequent tests
+    return match;
+  } else {
+    const searchInLine = caseSensitive ? line : line.toLowerCase();
+    const searchFor = caseSensitive ? searchString : searchString.toLowerCase();
+    return searchInLine.includes(searchFor);
+  }
+}
+
+function createQuickPickItem(
+  line: string,
+  lineNumber: number,
+  relativePath: string,
+  { isSingleLine, showLineNumbers }: SearchState,
+): QuickPickItem {
+  if (isSingleLine) {
+    return {
+      label: line.trim(),
+      description: showLineNumbers ? `(Line ${lineNumber + 1}) ${relativePath}` : relativePath,
+    };
+  } else {
+    return {
+      label: line.trim(),
+      description: showLineNumbers ? `(Line ${lineNumber + 1})` : '',
+      detail: relativePath,
+    };
+  }
+}
+
+function updateQuickPickItems(results: QuickPickItem[], quickPick: vscode.QuickPick<vscode.QuickPickItem>): void {
+  if (results.length > 0) {
+    quickPick.items = results;
+  } else {
+    quickPick.items = [{ label: 'No matches found.', description: '' }];
+  }
+}
+
+// Add these helper functions if they don't exist yet
+function updateButtonState(
+  button: { iconPath: vscode.ThemeIcon; tooltip: string },
+  isActive: boolean,
+  iconName: string,
+  featureName: string,
+  onText: string = 'On',
+  offText: string = 'Off',
+) {
+  button.iconPath = new vscode.ThemeIcon(isActive ? `${iconName}-active` : iconName);
+  button.tooltip = `Toggle ${featureName} (${isActive ? onText : offText})`;
+}
+
+function updateViewButtonState(button: { iconPath: vscode.ThemeIcon; tooltip: string }, isSingleLine: boolean) {
+  if (isSingleLine) {
+    button.iconPath = new vscode.ThemeIcon('list-flat');
+    button.tooltip = 'Switch to Multi-Line View';
+  } else {
+    button.iconPath = new vscode.ThemeIcon('list-tree');
+    button.tooltip = 'Switch to Single-Line View';
+  }
+}
 
 export default findInFiles;

@@ -1,3 +1,5 @@
+export const DEFAULT_DEBOUNCE_TIME = 300;
+
 export const defaultExcludePatterns = [
   '**/node_modules/**',
   '**/dist/**',
