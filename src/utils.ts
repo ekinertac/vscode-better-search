@@ -1,8 +1,8 @@
-import * as fs from "fs";
-import path from "path";
+import * as fs from 'fs';
+import path from 'path';
 
 export const subtractString = (string1: string, string2: string) => {
-  return string1.replace(string2, "");
+  return string1.replace(string2, '');
 };
 
 export const isBinary = (filePath: string): boolean => {
@@ -16,16 +16,16 @@ export const isBinary = (filePath: string): boolean => {
 };
 
 export const getGitignorePatterns = (workspaceFolder: string): string[] => {
-  const gitignorePath = path.join(workspaceFolder, ".gitignore");
+  const gitignorePath = path.join(workspaceFolder, '.gitignore');
   if (!fs.existsSync(gitignorePath)) {
-    return [""];
+    return [''];
   }
 
-  const gitignoreContent = fs.readFileSync(gitignorePath, "utf-8");
+  const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
   const nonEmptyLines = gitignoreContent
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
 
   return nonEmptyLines;
 };

@@ -1,10 +1,11 @@
-import * as vscode from "vscode";
-import * as path from "path";
-import { subtractString, isBinary, getGitignorePatterns } from "./utils";
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { subtractString, isBinary, getGitignorePatterns } from './utils';
+import { defaultExcludePatterns } from './constants';
 
 const findInFiles = () => {
   const quickPick = vscode.window.createQuickPick();
-  quickPick.placeholder = "Type to search in files...";
+  quickPick.placeholder = 'Type to search in files...';
   quickPick.matchOnDescription = true;
   quickPick.matchOnDetail = true;
 
@@ -17,29 +18,24 @@ const findInFiles = () => {
 
   // Add toggle buttons for case sensitivity and single/multi-line mode
   const caseSensitiveButton = {
-    iconPath: new vscode.ThemeIcon("case-sensitive"),
-    tooltip: "Toggle Case Sensitivity",
+    iconPath: new vscode.ThemeIcon('case-sensitive'),
+    tooltip: 'Toggle Case Sensitivity',
   };
 
   const toggleViewButton = {
-    iconPath: new vscode.ThemeIcon("list-flat"), // Icon indicating single-line view
-    tooltip: "Switch to Multi-Line View",
+    iconPath: new vscode.ThemeIcon('list-flat'), // Icon indicating single-line view
+    tooltip: 'Switch to Multi-Line View',
   };
 
   const toggleLineNumbersButton = {
-    iconPath: new vscode.ThemeIcon("symbol-numeric"),
-    tooltip: "Show/Hide Line Numbers",
+    iconPath: new vscode.ThemeIcon('symbol-numeric'),
+    tooltip: 'Show/Hide Line Numbers',
   };
 
-  quickPick.buttons = [
-    caseSensitiveButton,
-    toggleViewButton,
-    toggleLineNumbersButton,
-  ];
+  quickPick.buttons = [caseSensitiveButton, toggleViewButton, toggleLineNumbersButton];
 
   let timeout: NodeJS.Timeout | undefined;
-  const workspaceFolder =
-    vscode.workspace.workspaceFolders?.[0].uri.fsPath || "";
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0].uri.fsPath || '';
 
   const searchAndShowResults = async (searchString: string) => {
     if (!searchString) {
@@ -48,24 +44,12 @@ const findInFiles = () => {
     }
 
     // Respect VS Code's exclude settings (files.exclude, search.exclude, .gitignore, etc.)
-    let excludePatterns = getGitignorePatterns(workspaceFolder).join(",");
+    const gitIgnorePatterns = getGitignorePatterns(workspaceFolder).join(',');
 
-    if (!excludePatterns) {
-      excludePatterns = [
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/venv/**",
-        "**/.venv/**",
-        "**/.git/**",
-        "**/.vscode",
-        "**/.idea",
-        "**/.pytest_cache",
-        "**/__pycache__/**",
-      ].join(",");
-    }
+    // Default exclusions + project specific exclusions
+    const excludePatterns = [...defaultExcludePatterns, gitIgnorePatterns].join(',');
 
-    const files = await vscode.workspace.findFiles("**/*", excludePatterns, 25); // Default exclusions + custom ones
-
+    const files = await vscode.workspace.findFiles('**/*', excludePatterns, 25);
     const results: vscode.QuickPickItem[] = [];
 
     for (const file of files) {
@@ -90,23 +74,19 @@ const findInFiles = () => {
 
         lines.forEach((line, i) => {
           const searchInLine = caseSensitive ? line : line.toLowerCase();
-          const searchFor = caseSensitive
-            ? searchString
-            : searchString.toLowerCase();
+          const searchFor = caseSensitive ? searchString : searchString.toLowerCase();
 
           if (searchInLine.includes(searchFor)) {
             // Check if we are in single-line or multi-line mode
             if (isSingleLine) {
               results.push({
                 label: `${line.trim()}`, // Single-line: only content
-                description: showLineNumbers
-                  ? `(Line ${i + 1}) ${relativePath}`
-                  : relativePath, // File path on the right side
+                description: showLineNumbers ? `(Line ${i + 1}) ${relativePath}` : relativePath, // File path on the right side
               });
             } else {
               results.push({
                 label: `${line.trim()}`, // Multi-line: content on the first line
-                description: showLineNumbers ? `(Line ${i + 1})` : "", // Line number in description
+                description: showLineNumbers ? `(Line ${i + 1})` : '', // Line number in description
                 detail: `${relativePath}`, // File path in detail (below the line number)
               });
             }
@@ -120,7 +100,7 @@ const findInFiles = () => {
     if (results.length > 0) {
       quickPick.items = results;
     } else {
-      quickPick.items = [{ label: "No matches found.", description: "" }];
+      quickPick.items = [{ label: 'No matches found.', description: '' }];
     }
   };
 
@@ -135,14 +115,11 @@ const findInFiles = () => {
 
   quickPick.onDidAccept(() => {
     const selected = quickPick.selectedItems[0];
-    if (!selected || selected.label === "No matches found.") {
+    if (!selected || selected.label === 'No matches found.') {
       return;
     }
 
-    const filePath = path.join(
-      workspaceFolder,
-      selected.detail || selected.description?.split(") ")[1] || ""
-    ); // Extract file path
+    const filePath = path.join(workspaceFolder, selected.detail || selected.description?.split(') ')[1] || ''); // Extract file path
     const lineInfo = selected.description?.match(/\(Line (\d+)\)/);
     const line = lineInfo ? parseInt(lineInfo[1], 10) - 1 : 0;
 
@@ -160,9 +137,7 @@ const findInFiles = () => {
   quickPick.onDidTriggerButton((button) => {
     if (button === caseSensitiveButton) {
       caseSensitive = !caseSensitive;
-      vscode.window.showInformationMessage(
-        `Case sensitivity: ${caseSensitive ? "On" : "Off"}`
-      );
+      vscode.window.showInformationMessage(`Case sensitivity: ${caseSensitive ? 'On' : 'Off'}`);
       searchAndShowResults(quickPick.value); // Re-trigger search with updated case sensitivity
     }
 
@@ -171,11 +146,11 @@ const findInFiles = () => {
 
       // Update button icon and tooltip based on the current mode
       if (isSingleLine) {
-        toggleViewButton.iconPath = new vscode.ThemeIcon("list-flat"); // Single-line view icon
-        toggleViewButton.tooltip = "Switch to Multi-Line View";
+        toggleViewButton.iconPath = new vscode.ThemeIcon('list-flat'); // Single-line view icon
+        toggleViewButton.tooltip = 'Switch to Multi-Line View';
       } else {
-        toggleViewButton.iconPath = new vscode.ThemeIcon("list-tree"); // Multi-line view icon
-        toggleViewButton.tooltip = "Switch to Single-Line View";
+        toggleViewButton.iconPath = new vscode.ThemeIcon('list-tree'); // Multi-line view icon
+        toggleViewButton.tooltip = 'Switch to Single-Line View';
       }
 
       searchAndShowResults(quickPick.value); // Re-trigger search with updated display mode
