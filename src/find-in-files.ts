@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { subtractString, isBinary, getExcludePatterns, sortSearchResults } from './utils';
 import { DEFAULT_DEBOUNCE_TIME } from './constants';
 import { QuickPickItem } from 'vscode';
@@ -73,17 +74,16 @@ const findInFiles = () => {
       return;
     }
 
-    // const excludePatterns = ['**/node_modules', '**/.venv', '**/venv', '**/htmlcov', '**/.git'].join(',');
     const excludePatterns2 = await getExcludePatterns(workspaceFolder);
-
-    // Find files to search
     const files = await vscode.workspace.findFiles('**/*', `{${excludePatterns2}}`);
 
-    // Search files and update quick pick items
-    const results = await searchFiles(files, searchString, workspaceFolder, searchState);
+    // Create a generator function to search files
+    const resultsGenerator = searchFilesGenerator(files, searchString, workspaceFolder, searchState);
 
-    // Update quick pick items
-    updateQuickPickItems(results, quickPick);
+    // Use the generator to update results incrementally
+    for await (const result of resultsGenerator) {
+      updateQuickPickItems(result, quickPick);
+    }
   };
 
   // Handle search term changes
@@ -293,3 +293,36 @@ function updateViewButtonState(button: { iconPath: vscode.ThemeIcon; tooltip: st
 }
 
 export default findInFiles;
+
+async function* searchFilesGenerator(
+  files: vscode.Uri[],
+  searchString: string,
+  workspaceFolder: string,
+  searchState: SearchState,
+): AsyncGenerator<QuickPickItem[], void, unknown> {
+  const results: QuickPickItem[] = [];
+
+  for (const file of files) {
+    if (isBinary(file.fsPath)) {
+      continue;
+    }
+
+    try {
+      const text = await fs.promises.readFile(file.fsPath, 'utf8');
+      const lines = text.split(/\r?\n/);
+      const relativePath = getRelativePath(file.fsPath, workspaceFolder);
+
+      const searchRegex = createSearchRegex(searchString, searchState);
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (isLineMatch(line, searchString, searchRegex, searchState)) {
+          results.push(createQuickPickItem(line, i, relativePath, searchState));
+          yield sortSearchResults(results);
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not read file: ${file.fsPath}`, error);
+    }
+  }
+}
