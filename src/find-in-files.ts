@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { subtractString, isBinary, getGitignorePatterns } from './utils';
-import { DEFAULT_DEBOUNCE_TIME, defaultExcludePatterns } from './constants';
+import { subtractString, isBinary, getExcludePatterns, sortSearchResults } from './utils';
+import { DEFAULT_DEBOUNCE_TIME } from './constants';
 import { QuickPickItem } from 'vscode';
 
 interface SearchState {
@@ -73,11 +73,11 @@ const findInFiles = () => {
       return;
     }
 
-    // Get exclude patterns
-    const excludePatterns = searchState.isExclude ? getExcludePatterns(workspaceFolder) : '';
+    // const excludePatterns = ['**/node_modules', '**/.venv', '**/venv', '**/htmlcov', '**/.git'].join(',');
+    const excludePatterns2 = await getExcludePatterns(workspaceFolder);
 
     // Find files to search
-    const files = await vscode.workspace.findFiles('**/*', excludePatterns, 25);
+    const files = await vscode.workspace.findFiles('**/*', `{${excludePatterns2}}`);
 
     // Search files and update quick pick items
     const results = await searchFiles(files, searchString, workspaceFolder, searchState);
@@ -166,11 +166,7 @@ const findInFiles = () => {
   quickPick.show();
 };
 
-function getExcludePatterns(workspaceFolder: string): string {
-  const gitIgnorePatterns = getGitignorePatterns(workspaceFolder).join(',');
-  // Combine default exclude patterns with gitignore patterns
-  return [...defaultExcludePatterns, gitIgnorePatterns].join(',');
-}
+let count = 0;
 
 export async function searchFiles(
   files: vscode.Uri[],
@@ -185,6 +181,9 @@ export async function searchFiles(
       continue;
     }
 
+    // console.log(`${count} ${file.fsPath}`);
+    // count++;
+
     try {
       const document = await vscode.workspace.openTextDocument(file.fsPath);
       const text = document.getText();
@@ -196,6 +195,7 @@ export async function searchFiles(
       lines.forEach((line, i) => {
         if (isLineMatch(line, searchString, searchRegex, searchState)) {
           results.push(createQuickPickItem(line, i, relativePath, searchState));
+          console.log(relativePath);
         }
       });
     } catch (error) {
@@ -203,7 +203,7 @@ export async function searchFiles(
     }
   }
 
-  return results;
+  return sortSearchResults(results);
 }
 
 function getRelativePath(filePath: string, workspaceFolder: string): string {
