@@ -134,12 +134,10 @@ const findInFiles = () => {
       case caseSensitiveButton:
         searchState.caseSensitive = !searchState.caseSensitive;
         updateButtonState(caseSensitiveButton, searchState.caseSensitive, 'case-sensitive', 'Case Sensitivity');
-        vscode.window.showInformationMessage(`Case sensitivity: ${searchState.caseSensitive ? 'On' : 'Off'}`);
         break;
       case toggleViewButton:
         searchState.isSingleLine = !searchState.isSingleLine;
         updateViewButtonState(toggleViewButton, searchState.isSingleLine);
-        vscode.window.showInformationMessage(`View mode: ${searchState.isSingleLine ? 'Single-line' : 'Multi-line'}`);
         break;
       case toggleLineNumbersButton:
         searchState.showLineNumbers = !searchState.showLineNumbers;
@@ -151,17 +149,14 @@ const findInFiles = () => {
           'Show',
           'Hide',
         );
-        vscode.window.showInformationMessage(`Line numbers: ${searchState.showLineNumbers ? 'Shown' : 'Hidden'}`);
         break;
       case toggleRegexButton:
         searchState.isRegex = !searchState.isRegex;
         updateButtonState(toggleRegexButton, searchState.isRegex, 'regex', 'Regex Search');
-        vscode.window.showInformationMessage(`Regex search: ${searchState.isRegex ? 'On' : 'Off'}`);
         break;
       case toggleExcludeButton:
         searchState.isExclude = !searchState.isExclude;
         updateButtonState(toggleExcludeButton, searchState.isExclude, 'exclude', 'Exclude Patterns');
-        vscode.window.showInformationMessage(`Exclude patterns: ${searchState.isExclude ? 'On' : 'Off'}`);
         break;
     }
 
@@ -177,7 +172,7 @@ function getExcludePatterns(workspaceFolder: string): string {
   return [...defaultExcludePatterns, gitIgnorePatterns].join(',');
 }
 
-async function searchFiles(
+export async function searchFiles(
   files: vscode.Uri[],
   searchString: string,
   workspaceFolder: string,
