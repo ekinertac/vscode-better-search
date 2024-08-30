@@ -1,7 +1,6 @@
 import * as fs from 'fs';
-import path from 'path';
+import * as path from 'path';
 import { defaultExcludePatterns } from './constants';
-import { globifyGitIgnore } from 'globify-gitignore';
 import { QuickPickItem } from 'vscode';
 
 export const subtractString = (string1: string, string2: string) => {
@@ -27,7 +26,10 @@ export async function getExcludePatterns(workspaceFolder: string): Promise<strin
 
   const gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
 
+  // Use dynamic import
+  const { globifyGitIgnore } = await import('globify-gitignore');
   const globifiedEntries = await globifyGitIgnore(gitignoreContent, gitignoreDirectory);
+
   const patternArray = globifiedEntries
     .map((entry) => entry.glob)
     .filter((pattern) => {

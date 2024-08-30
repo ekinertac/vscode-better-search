@@ -33,10 +33,6 @@
     "theme": "dark"
   },
   "pricing": "Free",
-  "activationEvents": [
-    "onCommand:better-search.findInProject",
-    "onCommand:better-search.showModal"
-  ],
   "license": "See license in LICENSE file",
   "main": "./dist/extension.js",
   "homepage": "https://github.com/ekinertac/vscode-better-search",
@@ -48,25 +44,20 @@
     "type": "git",
     "url": "https://github.com/ekinertac/vscode-better-search.git"
   },
+  "activationEvents": [
+    "onCommand:better-search.findInProject"
+  ],
   "contributes": {
     "commands": [
       {
         "command": "better-search.findInProject",
         "title": "Find in Project (BetterSearch)"
-      },
-      {
-        "command": "better-search.showModal",
-        "title": "Show Modal (Better Search)"
       }
     ],
     "keybindings": [
       {
         "command": "better-search.findInProject",
         "key": "shift+cmd+f"
-      },
-      {
-        "command": "better-search.showModal",
-        "key": "alt+ctrl+F"
       }
     ]
   },
@@ -81,9 +72,7 @@
     "esbuild": "^0.21.5",
     "eslint": "^8.57.0",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.4.5"
-  },
-  "dependencies": {
+    "typescript": "^5.4.5",
     "globify-gitignore": "^1.0.3"
   }
 }
