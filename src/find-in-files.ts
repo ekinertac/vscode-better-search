@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { subtractString, isBinary, getExcludePatterns, sortSearchResults } from './utils';
+import { subtractString, isBinary, getExcludePatterns } from './utils';
 import { DEFAULT_DEBOUNCE_TIME } from './constants';
 import { QuickPickItem } from 'vscode';
 
@@ -14,7 +14,7 @@ interface SearchState {
 }
 const searchState: SearchState = {
   caseSensitive: false,
-  isSingleLine: true,
+  isSingleLine: false,
   showLineNumbers: true,
   isRegex: false,
   isExclude: false,
@@ -74,8 +74,11 @@ const findInFiles = () => {
       return;
     }
 
+    // performance measurements
+    const startTime = performance.now();
+
     const excludePatterns2 = await getExcludePatterns(workspaceFolder);
-    const files = await vscode.workspace.findFiles('**/*', `{${excludePatterns2}}`);
+    let files = await vscode.workspace.findFiles('**/*', `{${excludePatterns2}}`);
 
     // Create a generator function to search files
     const resultsGenerator = searchFilesGenerator(files, searchString, workspaceFolder, searchState);
@@ -84,6 +87,9 @@ const findInFiles = () => {
     for await (const result of resultsGenerator) {
       updateQuickPickItems(result, quickPick);
     }
+
+    const endTime = performance.now();
+    console.log(`Search completed in ${endTime - startTime} milliseconds`);
   };
 
   // Handle search term changes
@@ -203,7 +209,7 @@ export async function searchFiles(
     }
   }
 
-  return sortSearchResults(results);
+  return results;
 }
 
 function getRelativePath(filePath: string, workspaceFolder: string): string {
@@ -249,21 +255,20 @@ function createQuickPickItem(
 ): QuickPickItem {
   if (isSingleLine) {
     return {
-      label: line.trim(),
-      description: showLineNumbers ? `(Line ${lineNumber + 1}) ${relativePath}` : relativePath,
+      label: relativePath,
+      description: line.trim(),
     };
   } else {
     return {
-      label: line.trim(),
-      description: showLineNumbers ? `(Line ${lineNumber + 1})` : '',
-      detail: relativePath,
+      label: `${showLineNumbers ? `${relativePath}:${lineNumber + 1}` : relativePath}`,
+      detail: line.trim(),
     };
   }
 }
 
 function updateQuickPickItems(results: QuickPickItem[], quickPick: vscode.QuickPick<vscode.QuickPickItem>): void {
   if (results.length > 0) {
-    quickPick.items = results;
+    quickPick.items = [...results]; // Create a new array to trigger update
   } else {
     quickPick.items = [{ label: 'No matches found.', description: '' }];
   }
@@ -314,12 +319,18 @@ async function* searchFilesGenerator(
 
       const searchRegex = createSearchRegex(searchString, searchState);
 
+      let fileHasMatches = false;
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (isLineMatch(line, searchString, searchRegex, searchState)) {
-          results.push(createQuickPickItem(line, i, relativePath, searchState));
-          yield sortSearchResults(results);
+          const newItem = createQuickPickItem(line, i, relativePath, searchState);
+          results.push(newItem);
+          fileHasMatches = true;
         }
+      }
+
+      if (fileHasMatches) {
+        yield [...results]; // Sort and yield only when a file has matches
       }
     } catch (error) {
       console.warn(`Could not read file: ${file.fsPath}`, error);

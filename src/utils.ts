@@ -44,19 +44,43 @@ export async function getExcludePatterns(workspaceFolder: string): Promise<strin
 }
 
 export function sortSearchResults(results: QuickPickItem[]): QuickPickItem[] {
-  return results
-    .sort((a, b) => {
-      const pathA = a.description?.split(') ')[1] || a.detail || '';
-      const pathB = b.description?.split(') ')[1] || b.detail || '';
+  return results.sort((a, b) => {
+    const pathA = a.description?.split(') ')[1] || a.detail || '';
+    const pathB = b.description?.split(') ')[1] || b.detail || '';
 
-      // Compare path length
-      const lengthDiff = path.normalize(pathA).split(path.sep).length - path.normalize(pathB).split(path.sep).length;
-      if (lengthDiff !== 0) {
-        return lengthDiff;
+    const pathPartsA = pathA.split(path.sep);
+    const pathPartsB = pathB.split(path.sep);
+
+    // Compare path depth
+    const depthDiff = pathPartsA.length - pathPartsB.length;
+    if (depthDiff !== 0) {
+      return depthDiff; // Shorter paths (less depth) first
+    }
+
+    // If depths are equal, compare paths lexicographically
+    for (let i = 0; i < pathPartsA.length; i++) {
+      const comparison = pathPartsA[i].localeCompare(pathPartsB[i]);
+      if (comparison !== 0) {
+        return comparison;
       }
+    }
 
-      // If path lengths are equal, sort alphabetically
-      return pathA.localeCompare(pathB);
-    })
-    .reverse();
+    // If paths are identical, maintain original order
+    return 0;
+  });
+}
+
+export function printResultFilePaths(results: QuickPickItem[]): void {
+  const uniquePaths = new Set<string>();
+
+  results.forEach((item) => {
+    const path = item.description?.split(') ')[1] || item.detail || '';
+    if (path) {
+      uniquePaths.add(path);
+    }
+  });
+
+  console.log('Files with matches:');
+  uniquePaths.forEach((path) => console.log(path));
+  console.log(`Total files with matches: ${uniquePaths.size}`);
 }
