@@ -7,15 +7,11 @@ import { QuickPickItem } from 'vscode';
 
 interface SearchState {
   caseSensitive: boolean;
-  isSingleLine: boolean;
-  showLineNumbers: boolean;
   isRegex: boolean;
   isExclude: boolean;
 }
 const searchState: SearchState = {
   caseSensitive: false,
-  isSingleLine: false,
-  showLineNumbers: true,
   isRegex: false,
   isExclude: false,
 };
@@ -32,16 +28,6 @@ const findInFiles = () => {
     tooltip: 'Toggle Case Sensitivity',
   };
 
-  const toggleViewButton = {
-    iconPath: new vscode.ThemeIcon('list-flat'),
-    tooltip: 'Switch to Multi-Line View',
-  };
-
-  const toggleLineNumbersButton = {
-    iconPath: new vscode.ThemeIcon('symbol-numeric'),
-    tooltip: 'Show/Hide Line Numbers',
-  };
-
   const toggleRegexButton = {
     iconPath: new vscode.ThemeIcon('regex'),
     tooltip: 'Toggle Regex Search',
@@ -53,13 +39,7 @@ const findInFiles = () => {
   };
 
   // Add toggle buttons to the quick pick
-  quickPick.buttons = [
-    caseSensitiveButton,
-    toggleViewButton,
-    toggleLineNumbersButton,
-    toggleRegexButton,
-    toggleExcludeButton,
-  ];
+  quickPick.buttons = [caseSensitiveButton, toggleRegexButton, toggleExcludeButton];
 
   // Initialize timeout for debounce
   let timeout: NodeJS.Timeout | undefined;
@@ -110,11 +90,13 @@ const findInFiles = () => {
     }
 
     // Extract file path
-    const filePath = path.join(workspaceFolder, selected.detail || selected.description?.split(') ')[1] || '');
+    const filePath = path.join(workspaceFolder, selected.label).split(':')[0];
 
     // Extract line number
-    const lineInfo = selected.description?.match(/\(Line (\d+)\)/);
-    const line = lineInfo ? parseInt(lineInfo[1], 10) - 1 : 0;
+    const lineInfo = selected.label.split(':')[1];
+    const line = parseInt(lineInfo, 10) - 1;
+
+    console.log(filePath, line);
 
     // Open the file and set the cursor to the correct line
     vscode.workspace.openTextDocument(filePath).then((doc) => {
@@ -123,10 +105,7 @@ const findInFiles = () => {
         editor.selection = new vscode.Selection(range.start, range.end);
 
         // Center the scroll to the selected line
-        const middleLine = Math.floor(editor.visibleRanges[0].end.line / 2);
-        const targetLine = Math.max(line - middleLine, 0);
-        const targetRange = editor.document.lineAt(targetLine).range;
-        editor.revealRange(targetRange, vscode.TextEditorRevealType.InCenter);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
       });
     });
 
@@ -140,21 +119,6 @@ const findInFiles = () => {
       case caseSensitiveButton:
         searchState.caseSensitive = !searchState.caseSensitive;
         updateButtonState(caseSensitiveButton, searchState.caseSensitive, 'case-sensitive', 'Case Sensitivity');
-        break;
-      case toggleViewButton:
-        searchState.isSingleLine = !searchState.isSingleLine;
-        updateViewButtonState(toggleViewButton, searchState.isSingleLine);
-        break;
-      case toggleLineNumbersButton:
-        searchState.showLineNumbers = !searchState.showLineNumbers;
-        updateButtonState(
-          toggleLineNumbersButton,
-          searchState.showLineNumbers,
-          'symbol-numeric',
-          'Line Numbers',
-          'Show',
-          'Hide',
-        );
         break;
       case toggleRegexButton:
         searchState.isRegex = !searchState.isRegex;
@@ -172,8 +136,6 @@ const findInFiles = () => {
   quickPick.show();
 };
 
-let count = 0;
-
 export async function searchFiles(
   files: vscode.Uri[],
   searchString: string,
@@ -187,9 +149,6 @@ export async function searchFiles(
       continue;
     }
 
-    // console.log(`${count} ${file.fsPath}`);
-    // count++;
-
     try {
       const document = await vscode.workspace.openTextDocument(file.fsPath);
       const text = document.getText();
@@ -200,7 +159,7 @@ export async function searchFiles(
 
       lines.forEach((line, i) => {
         if (isLineMatch(line, searchString, searchRegex, searchState)) {
-          results.push(createQuickPickItem(line, i, relativePath, searchState));
+          results.push(createQuickPickItem(line, i, relativePath));
           console.log(relativePath);
         }
       });
@@ -247,23 +206,11 @@ function isLineMatch(
   }
 }
 
-function createQuickPickItem(
-  line: string,
-  lineNumber: number,
-  relativePath: string,
-  { isSingleLine, showLineNumbers }: SearchState,
-): QuickPickItem {
-  if (isSingleLine) {
-    return {
-      label: relativePath,
-      description: line.trim(),
-    };
-  } else {
-    return {
-      label: `${showLineNumbers ? `${relativePath}:${lineNumber + 1}` : relativePath}`,
-      detail: line.trim(),
-    };
-  }
+function createQuickPickItem(line: string, lineNumber: number, relativePath: string): QuickPickItem {
+  return {
+    label: `${relativePath}:${lineNumber + 1}`,
+    detail: line.trim(),
+  };
 }
 
 function updateQuickPickItems(results: QuickPickItem[], quickPick: vscode.QuickPick<vscode.QuickPickItem>): void {
@@ -285,16 +232,6 @@ function updateButtonState(
 ) {
   button.iconPath = new vscode.ThemeIcon(isActive ? `${iconName}-active` : iconName);
   button.tooltip = `Toggle ${featureName} (${isActive ? onText : offText})`;
-}
-
-function updateViewButtonState(button: { iconPath: vscode.ThemeIcon; tooltip: string }, isSingleLine: boolean) {
-  if (isSingleLine) {
-    button.iconPath = new vscode.ThemeIcon('list-flat');
-    button.tooltip = 'Switch to Multi-Line View';
-  } else {
-    button.iconPath = new vscode.ThemeIcon('list-tree');
-    button.tooltip = 'Switch to Single-Line View';
-  }
 }
 
 export default findInFiles;
@@ -323,7 +260,7 @@ async function* searchFilesGenerator(
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (isLineMatch(line, searchString, searchRegex, searchState)) {
-          const newItem = createQuickPickItem(line, i, relativePath, searchState);
+          const newItem = createQuickPickItem(line, i, relativePath);
           results.push(newItem);
           fileHasMatches = true;
         }
