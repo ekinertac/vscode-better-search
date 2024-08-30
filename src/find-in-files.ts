@@ -10,6 +10,7 @@ interface SearchState {
   isRegex: boolean;
   isExclude: boolean;
 }
+
 const searchState: SearchState = {
   caseSensitive: false,
   isRegex: false,
@@ -96,8 +97,6 @@ const findInFiles = () => {
     const lineInfo = selected.label.split(':')[1];
     const line = parseInt(lineInfo, 10) - 1;
 
-    console.log(filePath, line);
-
     // Open the file and set the cursor to the correct line
     vscode.workspace.openTextDocument(filePath).then((doc) => {
       vscode.window.showTextDocument(doc).then((editor) => {
@@ -160,7 +159,6 @@ export async function searchFiles(
       lines.forEach((line, i) => {
         if (isLineMatch(line, searchString, searchRegex, searchState)) {
           results.push(createQuickPickItem(line, i, relativePath));
-          console.log(relativePath);
         }
       });
     } catch (error) {
