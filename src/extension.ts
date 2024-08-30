@@ -4,7 +4,7 @@ import findInFiles from './find-in-files';
 
 export function activate(context: vscode.ExtensionContext) {
   // Find in Files through vscode palette
-  let findInProjectCommand = vscode.commands.registerCommand('better-search.findInProject', findInFiles);
+  let findInProjectCommand = vscode.commands.registerCommand('better-search.findInProject', () => findInFiles(context));
 
   // Register both commands in the context's subscriptions
   context.subscriptions.push(findInProjectCommand);

@@ -3,3 +3,9 @@ export interface SearchState {
   isRegex: boolean;
   isExclude: boolean;
 }
+
+export interface SearchResult {
+  label: string;
+  description: string;
+  detail: string;
+}
