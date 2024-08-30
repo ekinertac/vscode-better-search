@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { searchFiles } from '../find-in-files';
+import { searchFiles } from '../search';
 
 suite('Find in Files Test Suite', () => {
   const workspaceFolder = path.join(__dirname, 'test-workspace');

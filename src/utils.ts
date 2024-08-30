@@ -84,3 +84,8 @@ export function printResultFilePaths(results: QuickPickItem[]): void {
   uniquePaths.forEach((path) => console.log(path));
   console.log(`Total files with matches: ${uniquePaths.size}`);
 }
+
+export function getRelativePath(filePath: string, workspaceFolder: string): string {
+  let relativePath = subtractString(filePath, workspaceFolder);
+  return relativePath.startsWith(path.sep) ? relativePath.slice(1) : relativePath;
+}
