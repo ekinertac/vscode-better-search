@@ -1,9 +1,44 @@
 {
   "name": "better-search",
   "displayName": "Better Search",
-  "description": "A better search alternative for Visual Studio Code",
-  "version": "0.0.1",
+  "description": "A better search in project alternative for Visual Studio Code",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ekinertac/vscode-better-search.git"
+  },
   "publisher": "ekinertac",
+  "author": {
+    "name": "Ekin Ertaç",
+    "email": "ekinertac@gmail.com"
+  },
+  "icon": "images/icon.png",
+  "license": "MIT",
+  "homepage": "https://github.com/ekinertac/vscode-better-search",
+  "bugs": {
+    "email": "ekinertac@gmail.com",
+    "url": "https://github.com/ekinertac/vscode-better-search/issues"
+  },
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "galleryBanner": {
+    "color": "#FFB732",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "keywords": [
+    "search",
+    "find",
+    "replace",
+    "search in project",
+    "jetbrains search",
+    "jetbrains"
+  ],
   "scripts": {
     "build": "npm run compile && npm run vscode:prepublish && vsce package -o dist",
     "vscode:prepublish": "npm run package",
@@ -19,31 +54,7 @@
     "lint": "eslint src --ext ts",
     "test": "vscode-test"
   },
-  "author": {
-    "name": "Ekin Ertaç"
-  },
-  "categories": [
-    "Other"
-  ],
-  "engines": {
-    "vscode": "^1.87.0"
-  },
-  "galleryBanner": {
-    "color": "#C80000",
-    "theme": "dark"
-  },
-  "pricing": "Free",
-  "license": "See license in LICENSE file",
   "main": "./dist/extension.js",
-  "homepage": "https://github.com/ekinertac/vscode-better-search",
-  "bugs": {
-    "email": "ekinertac@gmail.com",
-    "url": "https://github.com/ekinertac/vscode-better-search/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ekinertac/vscode-better-search.git"
-  },
   "activationEvents": [
     "onCommand:better-search.findInProject"
   ],
