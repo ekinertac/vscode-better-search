@@ -2,7 +2,7 @@
 
 A faster and more efficient search extension for Visual Studio Code that enhances your code navigation and search capabilities.
 
-![Better Search](./images/video.gif)
+![Better Search](https://raw.githubusercontent.com/ekinertac/vscode-better-search/blob/master/images/video.gif)
 
 ## Features
 
